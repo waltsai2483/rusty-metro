@@ -1,20 +1,22 @@
 use ggez::{
     Context,
     glam::Vec2,
-    graphics::{Canvas, Color, DrawMode, DrawParam, Mesh, MeshBuilder, Quad, Rect},
+    graphics::{Canvas, Color, DrawMode, DrawParam, Mesh, MeshBuilder, Rect},
 };
 
 use crate::{
     passenger::Passenger,
     route::{handler::RouteHandler, segment::VehicleState},
     shape::ShapeBuilder,
-    station::handler::StationHandler,
+    station::{handler::StationHandler, types::StationShape},
+    utils::{lerp_angle, AngleNormalizer},
 };
 
 use super::Vehicle;
 
 pub struct Metro {
-    color: Color,
+    id: usize,
+
     route: usize,
     segment: usize,
     distance: f32,
@@ -29,15 +31,16 @@ pub struct Metro {
 
     position: Vec2,
     rotation: f32,
+    next_rotation: f32,
     mesh: Mesh,
 
     passengers: Vec<Passenger>,
 }
 
 impl Metro {
-    pub fn new(ctx: &Context, route: usize, color: Color) -> Self {
+    pub fn new(ctx: &Context, route: usize) -> Self {
         Metro {
-            color,
+            id: 0,
             route,
             segment: 0,
             distance: 0.0,
@@ -47,15 +50,16 @@ impl Metro {
             direction: 1.0,
             position: Vec2::new(0.0, 0.0),
             rotation: 0.0,
+            next_rotation: 0.0,
             passengers: vec![],
             waiting_time: 0.0,
             max_waiting_time: 1.0,
             mesh: Mesh::from_data(
                 ctx,
                 MeshBuilder::new()
-                    .rectangle(DrawMode::fill(), Rect::new(-0.5, -0.5, 1.0, 1.0), color)
+                    .rectangle(DrawMode::fill(), Rect::new(-0.5, -0.5, 1.0, 1.0), Color::WHITE)
                     .unwrap()
-                    .triangles(&[[0.5, -0.5], [0.5, 0.5], [1.0, 0.0]], color)
+                    .triangles(&[[0.5, -0.5], [0.5, 0.5], [0.75, 0.0]], Color::WHITE)
                     .unwrap()
                     .build(),
             ),
@@ -138,22 +142,26 @@ impl Metro {
 }
 
 impl Vehicle for Metro {
-    fn take_vehicle(&mut self, passenger: crate::passenger::Passenger) {
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    fn set_id(&mut self, id: usize) {
+        self.id = id
+    }
+
+    fn available_spaces(&self) -> usize {
         todo!()
     }
 
-    fn leave_vehicle(&mut self, kind: crate::station::types::StationKind) {
-        todo!()
-    }
-
-    fn draw(&self, canvas: &mut Canvas, shapes: &ShapeBuilder) {
+    fn draw(&self, canvas: &mut Canvas, shapes: &ShapeBuilder, color: Color) {
         canvas.draw(
             &self.mesh,
             DrawParam::default()
                 .dest(self.position)
                 .rotation(self.rotation)
                 .scale([20.0, 10.0])
-                .color(self.color),
+                .color(color),
         );
     }
 
@@ -162,6 +170,7 @@ impl Vehicle for Metro {
             return;
         }
         self.move_vehicle(routes, stations, delta);
+        self.rotation = lerp_angle(self.rotation, self.next_rotation, 25.0 * delta, false);
     }
 
     fn passengers(&self) -> &Vec<Passenger> {
@@ -173,7 +182,7 @@ impl Vehicle for Metro {
     }
 
     fn set_rotation(&mut self, rotation: f32) {
-        self.rotation = rotation;
+        self.next_rotation = rotation.normalize_angle();
     }
 
     fn speed(&self) -> f32 {

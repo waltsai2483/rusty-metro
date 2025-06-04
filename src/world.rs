@@ -2,17 +2,20 @@ use ggez::{
     Context, GameError, GameResult,
     event::EventHandler,
     glam::Vec2,
-    graphics::{Canvas, Color, DrawParam, FilterMode, Quad, Rect},
+    graphics::{Canvas, Color, DrawParam, FilterMode, Mesh, MeshBuilder, Quad, Rect},
 };
 use rand::rngs::ThreadRng;
 
 use crate::{
     route::{
-        handler::RouteHandler, stop::{Stop, StopSide}, Route
+        Route,
+        handler::RouteHandler,
+        stop::{Stop, StopSide},
     },
-    shape::palette::ShapePalette,
-    station::{handler::StationHandler, types::StationKind},
-    utils::colors::Colors, vehicle::{handler::VehicleHandler, metro::Metro},
+    shape::{ShapeBuilder, palette::ShapePalette},
+    station::{handler::StationHandler, types::StationShape},
+    utils::colors::Colors,
+    vehicle::{handler::VehicleHandler, metro::Metro},
 };
 
 pub struct MetroWorld {
@@ -25,39 +28,67 @@ pub struct MetroWorld {
 
     stations: StationHandler,
     routes: RouteHandler,
-    metros: VehicleHandler
+    metros: VehicleHandler,
 }
 
 impl MetroWorld {
     pub fn new(ctx: &mut Context) -> Self {
         let (logical_width, logical_height) = ctx.gfx.drawable_size();
         let mut stations = StationHandler::new(
-            ctx,
-            ShapePalette::new(Color::WHITE, Color::from_rgb(5, 5, 2)),
+            ShapeBuilder::new(
+                ctx,
+                ShapePalette::new(Color::WHITE, Color::from_rgb(5, 5, 2)),
+            ),
+            ShapeBuilder::new(
+                ctx,
+                ShapePalette::fill( Color::from_rgb(5, 5, 2)),
+            ),
         );
-        stations.add_station(StationKind::Circle, Vec2::new(100.0, 100.0));
-        stations.add_station(StationKind::Circle, Vec2::new(200.0, 200.0));
-        stations.add_station(StationKind::Circle, Vec2::new(300.0, 100.0));
-        stations.add_station(StationKind::Circle, Vec2::new(400.0, 200.0));
-        stations.add_station(StationKind::Circle, Vec2::new(500.0, 100.0));
+        stations.add_station(StationShape::Circle, Vec2::new(100.0, 100.0));
+        stations.add_station(StationShape::Circle, Vec2::new(200.0, 200.0));
+        stations.add_station(StationShape::Circle, Vec2::new(300.0, 100.0));
+        stations.add_station(StationShape::Circle, Vec2::new(400.0, 200.0));
+        stations.add_station(StationShape::Circle, Vec2::new(500.0, 100.0));
 
-        let mut metros = VehicleHandler::new();
-        metros.add_vehicle(Box::new(Metro::new(&ctx, 0, Color::RED)));
+        let mut routes = RouteHandler::new();
+        routes.add_route(
+            vec![
+                Stop::new(0, StopSide::Right),
+                Stop::new(1, StopSide::Left),
+                Stop::new(2, StopSide::Left),
+                Stop::new(3, StopSide::Right),
+            ],
+            false,
+        );
+        routes.add_route(
+            vec![
+                Stop::new(4, StopSide::Right),
+                Stop::new(3, StopSide::Left),
+                Stop::new(2, StopSide::Left),
+                Stop::new(1, StopSide::Right),
+            ],
+            false,
+        );
+
+        let mut metros = VehicleHandler::new(
+            7,
+            ShapeBuilder::new(
+                ctx,
+                ShapePalette::new(
+                    Color::from_rgb(125, 125, 125),
+                    Color::from_rgb(156, 156, 156),
+                ),
+            ),
+        );
+        metros.add_vehicle(Box::new(Metro::new(&ctx, 0)));
+        metros.add_vehicle(Box::new(Metro::new(&ctx, 1)));
 
         MetroWorld {
             rng: rand::rng(),
             time: 0.0,
             stations,
-            routes: RouteHandler::new(vec![Route::new(
-                vec![
-                    Stop::new(0, StopSide::Right),
-                    Stop::new(1, StopSide::Right),
-                    Stop::new(2, StopSide::Right),
-                    Stop::new(3, StopSide::Right),
-                ],
-                false,
-            )]),
-            metros: metros,
+            routes,
+            metros,
             logical_width,
             logical_height,
             screen_transform_rect: Rect::new(0.0, 0.0, logical_width, logical_height),
@@ -88,8 +119,9 @@ impl EventHandler<GameError> for MetroWorld {
     }
 
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        let mut delta = ctx.time.delta().as_secs_f32();
+        let delta = ctx.time.delta().as_secs_f32();
 
+        self.stations.update(&mut self.rng, delta);
         self.routes.update(&ctx, &self.stations, delta);
         self.metros.update(delta, &self.routes, &self.stations);
 
@@ -101,7 +133,7 @@ impl EventHandler<GameError> for MetroWorld {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
         canvas.set_screen_coordinates(self.screen_transform_rect);
-        canvas.set_sampler(FilterMode::Linear);
+        canvas.set_sampler(FilterMode::Nearest);
 
         canvas.draw(
             &Quad,
@@ -109,9 +141,16 @@ impl EventHandler<GameError> for MetroWorld {
                 .color(Colors::background())
                 .scale([self.logical_width, self.logical_height]),
         );
-        self.routes.draw(ctx, &mut canvas, &self.stations);
+
+        for route in self.routes.iter_mut() {
+            route.draw(&ctx, &mut canvas);
+            for metro_id in self.metros.metros_on_route(route.id()) {
+                self.metros
+                    .get(metro_id)
+                    .draw(&mut canvas, &self.metros.shapes(), route.color());
+            }
+        }
         self.stations.draw(&mut canvas);
-        self.metros.draw(&mut canvas, &self.stations.shapes());
 
         canvas.finish(ctx)
     }

@@ -8,7 +8,7 @@ use ggez::{
 use palette::ShapePalette;
 use strum::IntoEnumIterator;
 
-use crate::station::types::StationKind;
+use crate::station::types::StationShape;
 
 pub mod palette;
 
@@ -19,24 +19,24 @@ pub struct ShapeBuilder {
 impl ShapeBuilder {
     pub fn new(ctx: &mut Context, shape_color: ShapePalette) -> Self {
         ShapeBuilder {
-            shapes: StationKind::iter()
+            shapes: StationShape::iter()
                 .map(|t| ShapeBuilder::create_mesh(ctx, &shape_color, t))
                 .collect(),
         }
     }
 
-    pub fn get_mesh(&self, shape_type: StationKind) -> Shape {
+    pub fn get_mesh(&self, shape_type: StationShape) -> Shape {
         self.shapes[shape_type as usize].clone()
     }
 
     pub fn create_mesh(
         ctx: &Context,
         shape_color: &ShapePalette,
-        shape_type: StationKind,
+        shape_type: StationShape,
     ) -> Shape {
         let mb = &mut MeshBuilder::new();
         match shape_type {
-            StationKind::Circle => {
+            StationShape::Circle => {
                 mb.circle(
                     DrawMode::fill(),
                     [0.0, 0.0],
@@ -55,7 +55,7 @@ impl ShapeBuilder {
                 .expect("Error creating mesh for station.");
                 Shape::Circle(Mesh::from_data(ctx, mb.build()))
             }
-            StationKind::Square => {
+            StationShape::Square => {
                 mb.rectangle(
                     DrawMode::fill(),
                     Rect::new(-12.0, -12.0, 24.0, 24.0),
@@ -70,7 +70,7 @@ impl ShapeBuilder {
                 .expect("Error creating mesh for station.");
                 Shape::Square(Mesh::from_data(ctx, mb.build()))
             }
-            StationKind::Diamond => {
+            StationShape::Diamond => {
                 mb.rectangle(
                     DrawMode::fill(),
                     Rect::new(-12.0, -12.0, 24.0, 24.0),
@@ -85,7 +85,7 @@ impl ShapeBuilder {
                 .expect("Error creating mesh for station.");
                 Shape::Diamond(Mesh::from_data(ctx, mb.build()))
             }
-            StationKind::Triangle => {
+            StationShape::Triangle => {
                 let vertices = [PI / 2.0, 7.0 * PI / 6.0, 11.0 * PI / 6.0];
                 mb.triangles(
                     &vertices.map(|a| Vec2::from_angle(a) * 24.0),

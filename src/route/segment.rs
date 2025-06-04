@@ -114,17 +114,32 @@ impl Segment {
                 let vec = self.end_pos - self.begin_pos;
                 vec.y.atan2(vec.x)
             }
-            VehicleState::ArrivePlatform(_, _, entrance_angle, center_angle, _, _) => {
-                let angle = lerp_angle(
-                    entrance_angle,
-                    center_angle,
-                    distance / self.length(),
-                    false,
-                );
-                angle + PI / 2.0
+            VehicleState::ArrivePlatform(_, _, entrance_angle, center_angle, _, choose_larger) => {
+                self.calculate_rotation_on_platform(entrance_angle, center_angle, distance)
             }
-            VehicleState::LeavePlatform(_, _, _, center_angle, exit_angle, _) => {
-                let angle = lerp_angle(center_angle, exit_angle, distance / self.length(), false);
+            VehicleState::LeavePlatform(_, _, _, center_angle, exit_angle, choose_larger) => {
+                self.calculate_rotation_on_platform(center_angle, exit_angle, distance)
+            }
+        }
+    }
+
+    fn calculate_rotation_on_platform(&self, from: f32, to: f32, distance: f32) -> f32 {
+        let angle = lerp_angle(
+            from,
+            to,
+            distance / self.length(),
+            false,
+        );
+        if (to - from).abs() <= PI {
+            if to > from {
+                angle + PI / 2.0
+            } else {
+                angle - PI / 2.0
+            }
+        } else {
+            if to > from {
+                angle - PI / 2.0
+            } else {
                 angle + PI / 2.0
             }
         }

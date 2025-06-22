@@ -17,6 +17,7 @@ pub trait Vehicle {
     fn set_id(&mut self, id: usize);
     fn available_spaces(&self) -> usize;
 
+    fn position(&self) -> Vec2;
     fn set_position(&mut self, position: Vec2);
     fn set_rotation(&mut self, rotation: f32);
 
@@ -25,7 +26,7 @@ pub trait Vehicle {
     fn direction(&self) -> f32;
     fn reverse_direction(&mut self);
 
-    fn update(&mut self, routes: &RouteHandler, stations: &StationHandler, delta: f32);
+    fn update(&mut self, routes: &RouteHandler, stations: &mut StationHandler, delta: f32);
     fn draw(&self, canvas: &mut Canvas, shapes: &ShapeBuilder, color: Color);
 
     fn passengers(&self) -> &Vec<Passenger>;

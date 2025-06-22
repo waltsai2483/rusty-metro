@@ -2,13 +2,12 @@ use ggez::{
     Context, GameError, GameResult,
     event::EventHandler,
     glam::Vec2,
-    graphics::{Canvas, Color, DrawParam, FilterMode, Mesh, MeshBuilder, Quad, Rect},
+    graphics::{Canvas, Color, DrawParam, FilterMode, Quad, Rect},
 };
-use rand::rngs::ThreadRng;
+use rand::{SeedableRng, rngs::StdRng};
 
 use crate::{
     route::{
-        Route,
         handler::RouteHandler,
         stop::{Stop, StopSide},
     },
@@ -19,7 +18,7 @@ use crate::{
 };
 
 pub struct MetroWorld {
-    rng: ThreadRng,
+    rng: StdRng,
     time: f32,
 
     logical_width: f32,
@@ -28,21 +27,18 @@ pub struct MetroWorld {
 
     stations: StationHandler,
     routes: RouteHandler,
-    metros: VehicleHandler,
+    vehicles: VehicleHandler,
 }
 
 impl MetroWorld {
-    pub fn new(ctx: &mut Context) -> Self {
+    pub fn new(ctx: &mut Context, seed: u64) -> Self {
         let (logical_width, logical_height) = ctx.gfx.drawable_size();
         let mut stations = StationHandler::new(
             ShapeBuilder::new(
                 ctx,
                 ShapePalette::new(Color::WHITE, Color::from_rgb(5, 5, 2)),
             ),
-            ShapeBuilder::new(
-                ctx,
-                ShapePalette::fill( Color::from_rgb(5, 5, 2)),
-            ),
+            ShapeBuilder::new(ctx, ShapePalette::fill(Color::from_rgb(5, 5, 2))),
         );
         stations.add_station(StationShape::Circle, Vec2::new(100.0, 100.0));
         stations.add_station(StationShape::Circle, Vec2::new(200.0, 200.0));
@@ -84,11 +80,11 @@ impl MetroWorld {
         metros.add_vehicle(Box::new(Metro::new(&ctx, 1)));
 
         MetroWorld {
-            rng: rand::rng(),
+            rng: StdRng::seed_from_u64(seed),
             time: 0.0,
             stations,
             routes,
-            metros,
+            vehicles: metros,
             logical_width,
             logical_height,
             screen_transform_rect: Rect::new(0.0, 0.0, logical_width, logical_height),
@@ -123,7 +119,7 @@ impl EventHandler<GameError> for MetroWorld {
 
         self.stations.update(&mut self.rng, delta);
         self.routes.update(&ctx, &self.stations, delta);
-        self.metros.update(delta, &self.routes, &self.stations);
+        self.vehicles.update(delta, &self.routes, &mut self.stations);
 
         self.time += delta;
 
@@ -133,7 +129,7 @@ impl EventHandler<GameError> for MetroWorld {
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::BLACK);
         canvas.set_screen_coordinates(self.screen_transform_rect);
-        canvas.set_sampler(FilterMode::Nearest);
+        canvas.set_sampler(FilterMode::Linear);
 
         canvas.draw(
             &Quad,
@@ -144,13 +140,13 @@ impl EventHandler<GameError> for MetroWorld {
 
         for route in self.routes.iter_mut() {
             route.draw(&ctx, &mut canvas);
-            for metro_id in self.metros.metros_on_route(route.id()) {
-                self.metros
+            for metro_id in self.vehicles.metros_on_route(route.id()) {
+                self.vehicles
                     .get(metro_id)
-                    .draw(&mut canvas, &self.metros.shapes(), route.color());
+                    .draw(&mut canvas, &self.vehicles.shapes(), route.color());
             }
         }
-        self.stations.draw(&mut canvas);
+        self.stations.draw(&mut canvas, &self.vehicles);
 
         canvas.finish(ctx)
     }

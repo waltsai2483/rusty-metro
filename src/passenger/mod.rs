@@ -1,11 +1,13 @@
+use ggez::glam::Vec2;
+
 use crate::station::types::StationShape;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PassengerState {
     OnStation,
     OnVehicle,
-    LeavingStation(usize),
-    LeavingVehicle(usize)
+    LeavingStation(usize, Vec2),
+    LeavingVehicle(usize, Vec2)
 }
 
 #[derive(Debug, Clone, Copy)]

@@ -31,6 +31,6 @@ fn main() {
         .build()
         .expect("Failed to create ggez context!");
 
-    let game = MetroWorld::new(&mut ctx);
+    let game = MetroWorld::new(&mut ctx, 41);
     run(ctx, event_loop, game);
 }

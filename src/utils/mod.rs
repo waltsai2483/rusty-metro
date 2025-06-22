@@ -4,7 +4,7 @@ use ggez::glam::Vec2;
 
 pub mod colors;
 pub mod config;
-pub mod vec;
+pub mod grid;
 
 pub fn lerp_angle(a: f32, b: f32, t: f32, choosing_larger_angle: bool) -> f32 {
     let mut a = a.normalize_angle();
@@ -27,7 +27,6 @@ pub fn angle_between(a: f32, b: f32) -> f32 {
     }
     (b - a).abs()
 }
-
 
 pub trait AngleNormalizer {
     fn normalize_angle(self) -> f32;

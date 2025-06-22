@@ -15,15 +15,17 @@ pub enum VehicleState {
 pub struct Segment {
     begin_pos: Vec2,
     end_pos: Vec2,
+    connecting_station: usize,
     state: VehicleState,
 }
 
 impl Segment {
-    pub fn new(state: VehicleState, begin_pos: Vec2, end_pos: Vec2) -> Self {
+    pub fn new(state: VehicleState, begin_pos: Vec2, end_pos: Vec2, connecting_station: usize) -> Self {
         Segment {
             state,
             begin_pos,
             end_pos,
+            connecting_station
         }
     }
 
@@ -147,5 +149,9 @@ impl Segment {
 
     pub fn set_state(&mut self, state: VehicleState) {
         self.state = state;
+    }
+    
+    pub fn station(&self) -> usize {
+        self.connecting_station
     }
 }

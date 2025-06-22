@@ -5,11 +5,11 @@ use ggez::{
 };
 
 use crate::{
-    passenger::Passenger,
+    passenger::{Passenger, PassengerState},
     route::{handler::RouteHandler, segment::VehicleState},
     shape::ShapeBuilder,
     station::{handler::StationHandler, types::StationShape},
-    utils::{lerp_angle, AngleNormalizer},
+    utils::{AngleNormalizer, lerp_angle},
 };
 
 use super::Vehicle;
@@ -22,6 +22,7 @@ pub struct Metro {
     distance: f32,
 
     stopping: bool,
+    stop_station: usize,
     speed: f32,
     max_speed: f32,
     waiting_time: f32,
@@ -45,6 +46,7 @@ impl Metro {
             segment: 0,
             distance: 0.0,
             stopping: true,
+            stop_station: 0,
             speed: 0.0,
             max_speed: 200.0,
             direction: 1.0,
@@ -57,7 +59,11 @@ impl Metro {
             mesh: Mesh::from_data(
                 ctx,
                 MeshBuilder::new()
-                    .rectangle(DrawMode::fill(), Rect::new(-0.5, -0.5, 1.0, 1.0), Color::WHITE)
+                    .rectangle(
+                        DrawMode::fill(),
+                        Rect::new(-0.5, -0.5, 1.0, 1.0),
+                        Color::WHITE,
+                    )
                     .unwrap()
                     .triangles(&[[0.5, -0.5], [0.5, 0.5], [0.75, 0.0]], Color::WHITE)
                     .unwrap()
@@ -66,17 +72,27 @@ impl Metro {
         }
     }
 
-    fn is_vehicle_stopping(
+    fn try_update_vehicle_if_not_stopping(
         &mut self,
         routes: &RouteHandler,
-        stations: &StationHandler,
+        stations: &mut StationHandler,
         delta: f32,
     ) -> bool {
         let segment = routes.get(self.route).get(self.segment);
 
         if self.stopping {
-            self.waiting_time += delta;
-            if self.waiting_time > self.max_waiting_time {
+            let passengers = stations.get_mut(segment.station()).try_take_vehicle(self);
+            if passengers.is_empty() {
+                self.waiting_time -= delta;
+            } else {
+                self.waiting_time += passengers.len() as f32 * 0.2;
+                for passenger in passengers {
+                    let mut p = passenger.clone();
+                    p.set_state(PassengerState::OnVehicle);
+                    self.passengers.push(p);
+                }
+            }
+            if self.waiting_time <= 0.0 {
                 self.stopping = false;
                 if !self.try_reverse_direction_at_end(routes) {
                     self.start_next_segment(routes);
@@ -101,7 +117,7 @@ impl Metro {
                                 .min(1.0);
                         if segment.end(self.distance, self.direction) {
                             self.stopping = true;
-                            self.waiting_time = 0.0;
+                            self.waiting_time = self.max_waiting_time;
                         }
                     } else {
                         self.speed = self.max_speed
@@ -115,7 +131,7 @@ impl Metro {
                             * (1.05 - segment.progress(self.distance, self.direction));
                         if segment.end(self.distance, self.direction) {
                             self.stopping = true;
-                            self.waiting_time = 0.0;
+                            self.waiting_time = self.max_waiting_time;
                         }
                     } else {
                         self.speed =
@@ -128,7 +144,12 @@ impl Metro {
                             * (1.05 - segment.progress(self.distance, self.direction));
                         if segment.end(self.distance, self.direction) {
                             self.stopping = true;
-                            self.waiting_time = 0.0;
+                            self.waiting_time = self.max_waiting_time
+                                + stations
+                                    .get_mut(segment.station())
+                                    .try_take_vehicle(self)
+                                    .len() as f32
+                                    * 0.25;
                         }
                     } else {
                         self.speed =
@@ -151,7 +172,11 @@ impl Vehicle for Metro {
     }
 
     fn available_spaces(&self) -> usize {
-        todo!()
+        if self.passengers.len() > 6 {
+            0
+        } else {
+            6 - self.passengers.len()
+        }
     }
 
     fn draw(&self, canvas: &mut Canvas, shapes: &ShapeBuilder, color: Color) {
@@ -165,8 +190,8 @@ impl Vehicle for Metro {
         );
     }
 
-    fn update(&mut self, routes: &RouteHandler, stations: &StationHandler, delta: f32) {
-        if self.is_vehicle_stopping(routes, stations, delta) {
+    fn update(&mut self, routes: &RouteHandler, stations: &mut StationHandler, delta: f32) {
+        if self.try_update_vehicle_if_not_stopping(routes, stations, delta) {
             return;
         }
         self.move_vehicle(routes, stations, delta);
@@ -175,6 +200,10 @@ impl Vehicle for Metro {
 
     fn passengers(&self) -> &Vec<Passenger> {
         &self.passengers
+    }
+
+    fn position(&self) -> Vec2 {
+        self.position
     }
 
     fn set_position(&mut self, position: Vec2) {

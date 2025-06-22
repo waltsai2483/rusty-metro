@@ -55,7 +55,7 @@ impl VehicleHandler {
             .push(self.metros.len() - 1);
     }
 
-    pub fn update(&mut self, delta: f32, routes: &RouteHandler, stations: &StationHandler) {
+    pub fn update(&mut self, delta: f32, routes: &RouteHandler, stations: &mut StationHandler) {
         for vehicle in self.metros.iter_mut() {
             vehicle.update(routes, stations, delta);
         }

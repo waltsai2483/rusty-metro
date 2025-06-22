@@ -107,6 +107,7 @@ impl Route {
 
             if idx > 0 {
                 self.update_platform_segments(
+                    curr_station.id(),
                     next_station.position() - curr_station.position(),
                     platform_entrance,
                     platform_exit,
@@ -121,15 +122,18 @@ impl Route {
                 VehicleState::Moving,
                 curr_station.position() + platform_exit,
                 turning_point,
+                curr_station.id(),
             ));
             self.path_nodes.push(Segment::new(
                 VehicleState::Moving,
                 turning_point,
                 next_station.position() + platform_entrance,
+                next_station.id(),
             ));
         }
         if self.is_looped {
             self.update_platform_segments(
+                self.stops[0].index(),
                 stations.get(self.stops[1].index()).position()
                     - stations.get(self.stops[0].index()).position(),
                 platform_entrance,
@@ -261,6 +265,7 @@ impl Route {
 
     fn update_platform_segments(
         &mut self,
+        station_id: usize,
         next_station_vect: Vec2,
         platform_entrance: Vec2,
         platform_exit: Vec2,
@@ -285,6 +290,7 @@ impl Route {
             ),
             platform_entrance,
             platform_center,
+            station_id,
         ));
         self.path_nodes.push(Segment::new(
             VehicleState::LeavePlatform(
@@ -297,6 +303,7 @@ impl Route {
             ),
             platform_center,
             platform_exit,
+            station_id,
         ));
     }
 
@@ -424,7 +431,12 @@ impl Route {
             ) => {
                 let mut points: Vec<[f32; 2]> = vec![];
                 for i in 0..=(PLATFORM_SMOOTHNESS as i32) {
-                    let angle = lerp_angle(entrance_angle, center_angle, (i as f32) / PLATFORM_SMOOTHNESS, false);
+                    let angle = lerp_angle(
+                        entrance_angle,
+                        center_angle,
+                        (i as f32) / PLATFORM_SMOOTHNESS,
+                        false,
+                    );
                     points.push((center + Vec2::from_angle(angle) * radius).to_array());
                 }
                 mb.line(&points, PLATFORM_LINE_WIDTH, self.color)
